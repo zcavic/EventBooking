@@ -1,0 +1,10 @@
+build
+node_modules
+
+.env
+env-files
+.DS_Store
+.idea
+server.cert
+server.key
+coverage
