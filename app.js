@@ -2,6 +2,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const { graphqlHTTP } = require("express-graphql");
 const { buildSchema } = require("graphql");
+const mongoose = require("mongoose");
+const Event = require("./models/event");
 
 const app = express();
 
@@ -41,23 +43,26 @@ app.use(
             }
         `),
         rootValue: {
-            events: () => {
-                return events;
+            events: async () => {
+                return await Event.find();
             },
-            createEvent: (arg) => {
-                const event = {
-                    _id: Math.random().toString(),
-                    title: arg.eventInput.title,
-                    description: arg.eventInput.description,
-                    price: +arg.eventInput.price,
-                    date: new Date().toISOString()
-                };
-                events.push(event);
-                return event;
+            createEvent: async (arg) => {
+                const event = new Event({ ...arg.eventInput, date: new Date() });
+                return await event.save();
             }
         },
         graphiql: true
     })
 );
 
-app.listen(3000);
+mongoose
+    .connect(
+        `mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_PASSWORD}@cluster0.b2tlh.mongodb.net/${process.env.MONGO_DB}?retryWrites=true&w=majority`
+    )
+    .then(() => {
+        app.listen(3000);
+        console.log("Service is started on port 3000.");
+    })
+    .catch((err) => {
+        console.log(err);
+    });
