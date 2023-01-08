@@ -2,7 +2,7 @@
   "name": "eventbooking",
   "version": "1.0.0",
   "description": "",
-  "main": "app.js",
+  "main": "src/app.js",
   "engines": {
     "npm": ">=6.9.0",
     "node": ">=14.17.0"
