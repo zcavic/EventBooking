@@ -2,6 +2,7 @@ const Event = require("../../models/event");
 const User = require("../../models/user");
 const Booking = require("../../models/booking");
 const bcryptjs = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const getUser = async (userId) => {
     const userDb = await User.findById(userId);
@@ -27,7 +28,8 @@ const getEvent = async (eventId) => {
 };
 
 module.exports = {
-    bookings: async () => {
+    bookings: async (arg, req) => {
+        if (!req.isAuth) throw new Error("Unauthenticated");
         const bookings = await Booking.find();
         return bookings.map((booking) => ({
             _id: booking._doc._id,
@@ -37,19 +39,20 @@ module.exports = {
             updatedAt: new Date(booking._doc.updatedAt).toISOString()
         }));
     },
-    events: async () => {
+    events: async (arg, req) => {
         const events = await Event.find();
         return events.map((event) => ({ ...event._doc, creator: getUser.bind(this, event._doc.creator) }));
     },
-    createEvent: async (arg) => {
-        const user = await User.findById("63b9e0ea47ec9e3ef552abc1");
+    createEvent: async (arg, req) => {
+        if (!req.isAuth) throw new Error("Unauthenticated");
+        const user = await User.findById(req.user.userId);
         if (!user) throw new Error("User not exist!");
-        const event = new Event({ ...arg.eventInput, date: new Date(), creator: "63b9e0ea47ec9e3ef552abc1" });
+        const event = new Event({ ...arg.eventInput, date: new Date(), creator: req.user.userId });
         user.createdEvents.push(event);
         await user.save();
         return await event.save();
     },
-    createUser: async (arg) => {
+    createUser: async (arg, req) => {
         if (await User.findOne({ email: arg.userInput.email })) throw new Error("User exist!");
         const user = new User({
             email: arg.userInput.email,
@@ -57,8 +60,8 @@ module.exports = {
         });
         return await user.save();
     },
-    bookEvent: async (arg) => {
-        const user = await User.findById("63b9e0ea47ec9e3ef552abc1");
+    bookEvent: async (arg, req) => {
+        const user = await User.findById(req.user.userId);
         if (!user) throw new Error("User not exist!");
         const event = await Event.findById(arg.eventId);
         if (!event) throw new Error("Event not exist!");
@@ -68,12 +71,20 @@ module.exports = {
         await booking.save();
         return { ...booking, user: getUser.bind(this, user._id), event: getEvent.bind(this, event._id) };
     },
-    cancelBooking: async (arg) => {
+    cancelBooking: async (arg, req) => {
         const booking = await Booking.findById(arg.bookingId);
         if (!booking) throw new Error("Booking not exist!");
         const event = await Event.findById(booking._doc.event);
         if (!event) throw new Error("Event not exist!");
         await Booking.deleteOne({ _id: arg.bookingId });
         return { ...event._doc, creator: getUser.bind(this, event._doc.creator) };
+    },
+    login: async ({ email, password }) => {
+        const user = await User.findOne({ email });
+        if (!user) throw new Error("User doesn't exist!");
+        const isEqual = await bcryptjs.compare(password, user._doc.password);
+        if (!isEqual) throw new Error("Invalid password!");
+        const token = jwt.sign({ userId: user.id, email: user.email }, "secret", { expiresIn: "1h" });
+        return { userId: user.id, token, tokenExpiration: 1 };
     }
 };
