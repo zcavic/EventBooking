@@ -29,7 +29,7 @@ const getEvent = async (eventId) => {
 
 module.exports = {
     bookings: async (arg, req) => {
-        if (!req.isAuth) throw new Error("Unauthenticated");
+        //if (!req.isAuth) throw new Error("Unauthenticated");
         const bookings = await Booking.find();
         return bookings.map((booking) => ({
             _id: booking._doc._id,
